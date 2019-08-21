@@ -43,5 +43,6 @@ nosetests.xml
 # virtual environments
 .env
 *.pdf
+*.PDF
 pdfreader.py
 *.csv
