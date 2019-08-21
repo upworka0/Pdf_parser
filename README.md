@@ -7,7 +7,7 @@ The purpose of this project is to get cost usage data from AWS costexplorer api 
 Installation
 ------------
 
-Make sure Java JDK was installed. <a href="https://www.java.com/en/download/">Install JDK here</a>
+Make sure Java JDK was installed. <a href="https://www.java.com/en/download/">Install JDK here</a><br>
 Install python package using pip
 
     pip install -r requirements.txt
