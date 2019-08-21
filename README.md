@@ -8,7 +8,7 @@ Installation
 ------------
 
 Make sure Java JDK was installed. <a href="https://www.java.com/en/download/">Install JDK here</a><br>
-Install python package using pip
+Install python packages using pip
 
     pip install -r requirements.txt
 
