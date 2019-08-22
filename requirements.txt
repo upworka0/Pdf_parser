@@ -1,2 +1,2 @@
 numpy
-tabula-py
+pdfminer.six

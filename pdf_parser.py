@@ -1,8 +1,11 @@
 import argparse
-import json
-import tabula
 import os
-import re
+from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
+from pdfminer.converter import TextConverter
+from pdfminer.layout import LAParams
+from pdfminer.pdfpage import PDFPage
+from io import StringIO
+
 
 class PDFParse:
     pdf_path = None
@@ -27,19 +30,18 @@ class PDFParse:
             return True
         return False
 
-    def get_key(self, value):
-        key = re.sub("\D", "", value)
-        key_arr = {
-            "010": "ADNT_0_10",
-            "1080": "ADNT_10_80",
-            "80600": "ADNT_80_600",
-            "6002000": "ADNT_600_2000",
-            "20009000": "ADNT_2000_9000",
-            "9000": "ADNT_9000+"
-        }
-        if key in key_arr:
-            return key_arr[key]
-        return value
+    def get_csv_header(self):
+        key_arr = [
+            "Price ranges",
+            "ADNT_0_10",
+            "ADNT_10_80",
+            "ADNT_80_600",
+            "ADNT_600_2000",
+            "ADNT_2000_9000",
+            "ADNT_9000+"
+        ]
+
+        return ",".join(key_arr) + "\n"
 
     def check_or_create_dir(self, path):
         if not (os.path.exists(os.path.dirname(path))):
@@ -78,13 +80,81 @@ class PDFParse:
         with open(self.csv_path, "a", encoding="utf-8") as f:
             f.write(row_data)
 
-    def pdf_to_json(self):
+    def convert_pdf_to_txt(self, path):
         """
-        Convert PDF to JSON
+        Parse PDF to text
         """
-        json_path = "output.json"
-        tabula.convert_into(self.pdf_path, json_path, java_options="-Dfile.encoding=UTF8", output_format="json", pages='all')
-        return json_path
+        rsrcmgr = PDFResourceManager()
+        retstr = StringIO()
+        laparams = LAParams()
+        device = TextConverter(rsrcmgr, retstr, codec='utf-8', laparams=laparams)
+        fp = open(path, 'rb')
+        interpreter = PDFPageInterpreter(rsrcmgr, device)
+        pagenos = set()
+        first = True
+
+        for page in PDFPage.get_pages(fp, pagenos, caching=True, check_extractable=True):
+            if first:
+                first = False
+                continue
+            interpreter.process_page(page)
+
+        text = retstr.getvalue()
+
+        fp.close()
+        device.close()
+        retstr.close()
+        return text
+
+    def adjust_data(self, arr, row_cnt):
+        """
+            Get csv_data from array
+        """
+        data = []
+        col_cnt = int(len(arr) / row_cnt)
+
+        for i_col in range(col_cnt):
+            data.append(arr[i_col * row_cnt:row_cnt * (i_col + 1)])
+
+        csv_data = []
+        for i_row in range(row_cnt):
+            row_data = []
+            for i_col in range(col_cnt):
+                row_data.append(data[i_col][i_row])
+            csv_data.append(row_data)
+
+        return csv_data
+
+    def get_values_array(self, text):
+        """
+            Parse text to array
+        """
+        arr = text.split('\n\n')
+        arr = arr[:len(arr)-4]
+        arr = [val.strip() for val in arr]
+        data = []
+        for val in arr:
+            if val != '':
+                data.append(val)
+
+        row_cnt = 0
+        for index, item in enumerate(data):
+            if item == 'ANNEX':
+                row_cnt = index - 1
+
+        data.remove('Tick Size Table')
+        data.remove('ANNEX')
+
+        table_data = []
+        for ind in range(len(data)-1, -1, -1):
+            try:
+                float(data[ind])
+                table_data.append(data[ind])
+            except:
+                break
+        table_data.reverse()
+        table_data = data[1:row_cnt+1] + table_data
+        return self.adjust_data(table_data, row_cnt)
 
     def parse(self):
         """
@@ -93,30 +163,19 @@ class PDFParse:
         if not self.file_exist(self.pdf_path):
             print("PDF file `%s` doesn't exist" % self.pdf_path)
         else:
-            json_path = self.pdf_to_json()
-
-            with open(json_path, "r", encoding="utf-8") as f:
-                json_data = json.loads(f.read())
-
-            for index1 in range(1, len(json_data[0]['data'])):
-                row = json_data[0]['data'][index1]
+            json_data = self.get_values_array(self.convert_pdf_to_txt(self.pdf_path))
+            for index1 in range(1, len(json_data)):
+                row = json_data[index1]
                 text = ""
                 for index2 in range(0, len(row)):
-                    if index1 == 1:
-                        text = text + self.get_key(row[index2]['text']) + ","
-                    else:
-                        text = text + row[index2]['text'] + ","
-
-                if index1 == 1:
-                    self.header_data = text[:len(text) - 1] + "\n"
-                else:
-                    self.rows_data.append(text[:len(text) - 1] + "\n")
-        os.remove(json_path)
+                    text = text + row[index2] + ","
+                self.rows_data.append(text[:len(text) - 1] + "\n")
 
     def to_csv(self):
         """
         Store data to csv
         """
+        self.header_data = self.get_csv_header()
         self.CR_Header_Row(self.header_data)
 
         for row in self.rows_data:
@@ -129,8 +188,12 @@ class PDFParse:
         self.pdf_path = "test.pdf"
         self.csv_path = "test/test.csv"
         self.parse()
+        self.to_csv()
 
 
 parser = PDFParse()
 parser.parse()
 parser.to_csv()
+
+## for testing
+# parser.test()
