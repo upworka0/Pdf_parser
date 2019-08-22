@@ -13,9 +13,11 @@ class PDFParse:
     header_data = ""
     rows_data = []
     in_header = False
+    file = None
 
     def __init__(self):
         self.arg_parse()
+        pass
 
     def arg_parse(self):
         parser = argparse.ArgumentParser()
@@ -54,21 +56,9 @@ class PDFParse:
         :param header_data: str , i.e. "field1. field2, field3..."
         """
         self.check_or_create_dir(self.csv_path)
-
-        if self.in_header and self.file_exist(self.csv_path):
-            # read csv all lines and change the header
-            with open(self.csv_path, "r", encoding="utf-8") as f:
-                data = f.readlines()
-            data[0] = header_data
-
-            # write to csv again
-            with open(self.csv_path, "w", encoding="utf-8") as f:
-                f.writelines(data)
-        else:
-            # write to csv again
-            with open(self.csv_path, "w", encoding="utf-8") as f:
-                f.write(header_data)
-            self.in_header = False
+        self.file = open(self.csv_path, "w", encoding="utf-8")
+        self.file.write(header_data)
+        # self.in_header = False
 
 
     def CR_Data_Row(self, row_data):
@@ -77,8 +67,8 @@ class PDFParse:
         :param row_data: str, i.e. "GTE,0,0,1..."
         """
         self.check_or_create_dir(self.csv_path)
-        with open(self.csv_path, "a", encoding="utf-8") as f:
-            f.write(row_data)
+
+        self.file.write(row_data)
 
     def convert_pdf_to_txt(self, path):
         """
@@ -180,6 +170,7 @@ class PDFParse:
 
         for row in self.rows_data:
             self.CR_Data_Row(row)
+        self.file.close()
 
     """
     Test Case
